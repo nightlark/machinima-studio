@@ -1,8 +1,11 @@
 /* eslint-disable no-console */
 'use strict';
 
-const gw2          = require(__dirname + '/src/initialize.js');
-const offsets      = require(__dirname + '/src/offsets.js');
+const gw2     = require(__dirname + '/src/initialize.js');
+const offsets = require(__dirname + '/src/offsets.js');
+const fs      = require('fs');
+
+var result = {};
 
 /**
  * Start by trying to find the correct GW2 process
@@ -39,7 +42,25 @@ gw2(function(err, process, module, memory) {
       if (offsetAdjustement) {
         base += offsetAdjustement;
       }
-      console.log(descriptor, '0x' + (base).toString(16).toUpperCase().lpad('0', 8));
+      var address = '0x' + (base).toString(16).toUpperCase().lpad('0', 8)
+      console.log(descriptor, address);
+      /**
+       * Create a reference for the memory path
+       * and save the value of the address
+       * @type {Object}
+       */
+      var obj = result;
+      var s = descriptor.split('.');
+      var p;
+      while (s.length) {
+          p = s.shift();
+
+          if (s.length === 0) {
+            obj[p] = address;
+          } else {
+            obj = obj[p] || (obj[p] = {});
+          }
+      }
     } else {
       console.log(descriptor, 'ptr base not found');
     }
@@ -67,22 +88,8 @@ gw2(function(err, process, module, memory) {
   * Debug related pointers
   * @type {String}
   */
-  pattern = offsets.debug.original;
+  pattern = offsets.debug.original.toString('hex');
   pointerFound('offsets.debug.original', findPattern(pattern), 0, 22, true, module - 1104);
-
-  /**
-  * Animation related pointers
-  * @type {String}
-  */
-  pattern = offsets.advancedView.animation.original.toString('hex');
-  pointerFound('offsets.advancedView.animation.original', findPattern(pattern), 5, -0x450);
-
-  /**
-  * Agent related pointers
-  * @type {String}
-  */
-  pattern = offsets.agent.highlight_effect.original.toString('hex');
-  pointerFound('offsets.agent.highlight_effect.original', findPattern(pattern));
 
   /**
   * Camera related pointers
@@ -90,7 +97,7 @@ gw2(function(err, process, module, memory) {
   */
 
   pattern = offsets.camera.original.toString('hex');
-  pointerFound('offsets.camera.original', findPattern(pattern), 0, 0x45, true);
+  pointerFound('offsets.camera.offset', findPattern(pattern), 0, 0x45, true);
 
   pattern = offsets.camera.instructions.patch_1.original.toString('hex');
   pointerFound('offsets.camera.instructions.patch_1.original', findPattern(pattern));
@@ -132,7 +139,7 @@ gw2(function(err, process, module, memory) {
   * @type {String}
   */
   pattern = offsets.environment.timeOfDayOriginal.toString('hex');
-  pointerFound('offsets.environment.timeOfDayOriginal', findPattern(pattern), 5);
+  pointerFound('offsets.environment.enableTimeOfDay', findPattern(pattern), 5);
 
   /**
   * Map rendering functions offsets
@@ -162,4 +169,21 @@ gw2(function(err, process, module, memory) {
   pointerFound('offsets.environment.rendering.cube_map', findPattern(pattern), 5);
   pattern = offsets.environment.rendering.props.original.toString('hex');
   pointerFound('offsets.environment.rendering.props', findPattern(pattern), 5);
+
+  /**
+  * Animation related pointers
+  * @type {String}
+  */
+  pattern = offsets.environment.rendering.animation.original.toString('hex');
+  pointerFound('offsets.environment.rendering.animation', findPattern(pattern), 5, 5);
+
+  /**
+  * Agent related pointers
+  * @type {String}
+  */
+  pattern = offsets.environment.rendering.highlight_effect.toString('hex');
+  pointerFound('offsets.environment.rendering.highlight_effect', findPattern(pattern));
+
+  fs.writeFileSync(__dirname + '/src/ptrs.json', JSON.stringify(result.offsets, null, 4));
+  console.log('Pointers have been updated: src/ptrs.js');
 });
